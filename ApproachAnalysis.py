@@ -161,7 +161,7 @@ if __name__ == "__main__":
     )
     for pilot_id, pilot_data in linked_data.items():
         print(f"\n- {str.upper(pilot_id)} -")
-        if pilot_id == "pilot 3":
+        if pilot_id == "pilot 2":
              # Access each DataFrame
              df_maneuver = pilot_data.get("maneuver")
              df_state = pilot_data.get("state")
@@ -188,7 +188,9 @@ if __name__ == "__main__":
             #GPS Data
              vs = -1 * (df_state['Velocity Down (m/s)'] * 196.85)
              alt = df_state['Height (m)'] * 3.281
+             print("Converting timestamps")
              FOG_timestamp = df_state['Human Timestamp'].apply(extract_time)
+             print("Timestamps converted")
              heading = df_state['Heading (degrees)'] 
              latitudes = df_state['Latitude (degrees)']
              longitudes = df_state['Longitude (degrees)']
@@ -206,41 +208,46 @@ if __name__ == "__main__":
              cols=1, 
              shared_xaxes=True)
              
+             newTable = get_active_maneuvers(df_maneuver) #get manuevers to plot on graphs
+             
              for i, v in enumerate(dataToPlot, start = 1):
-                 #Controls data
-                 print(i)
-                 
+                 print(f"Plotting {v.name}")
                  if v.name == "Pitch" or v.name == "Roll" or v.name == "Collective" or v.name == "Pedal":
                      color = random_rgb()
                      signal = go.Scatter(x=control_timestamp,y=v,name = str(v.name), line = dict(color=f'{color}'))
                      fig.add_trace(signal, row = i,col = 1)
+                     
+                     for j,k in newTable.iterrows():
+                         currentTime = newTable["Time"][j]
+                         currentMan = newTable['Active_Maneuver'][j]
+                         fig.add_vline(x=currentTime , line_dash="dash", line_color="gray", row = i,col = 1)
+                         fig.add_annotation(
+                             x=currentTime,
+                             y=0,
+                             text=currentMan,
+                             row = i,
+                             col = 1
+                         )
+                         
                  else:
                      color = random_rgb()
                      signal = go.Scatter(x=FOG_timestamp,y=v,name = str(v.name), line = dict(color=f'{color}'))
                      fig.add_trace(signal, row = i,col = 1)
-        
+                     
+                     for j,k in newTable.iterrows():
+                         currentTime = newTable["Time"][j]
+                         currentMan = newTable['Active_Maneuver'][j]
+                         fig.add_vline(x=currentTime , line_dash="dash", line_color="gray", row = i,col = 1)
+                         fig.add_annotation(
+                             x=currentTime,
+                             y=0,
+                             text=currentMan,
+                             row = i,
+                             col = 1
+                         )
+             fig.update_layout(height = 1500)
              fig.show()
-             
-             """
-             plot mans
-             newTable = get_active_maneuvers(df_maneuver)
-             for i,v in newTable.iterrows():
-                 currentTime = newTable["Time"][i]
-                 currentMan = newTable['Active_Maneuver'][i]
-                 fig.add_vline(x=currentTime , line_dash="dash", line_color="green", row = 2,col = 1)
-                 fig.add_annotation(
-                     x=currentTime,
-                     y=-10,
-                     xref='x2',  # <-- explicitly link to x-axis of row=2
-                     yref='y2',  # <-- explicitly link to y-axis of row=2
-                     text=currentMan,
-                     showarrow=False,
-                     arrowhead=2,
-                     arrowsize=1,
-                     arrowwidth=2,
-                     arrowcolor="red"
-                 )
-             """
+
              break
     
     
