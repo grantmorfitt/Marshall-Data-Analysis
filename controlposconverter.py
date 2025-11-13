@@ -18,7 +18,6 @@ pio.renderers.default='browser'
 
 
 def read_csv(filename):
-    """Reads data from a specified CSV file and prints each row."""
 
     print(f"--- Reading '{filename}' ---")
     try:
