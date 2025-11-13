@@ -50,7 +50,7 @@ def voltage_to_distance(volts):
     
     return x
 
-def convert_data(col) -> pd.series:
+def convert_data(col):
     """
     Parameters
     ----------
@@ -62,7 +62,7 @@ def convert_data(col) -> pd.series:
     converted series
 
     """
-    cyclic_x = 160 #distance from fulcrum to approximate location on cyclic
+    cyclic_x = (183+60) #distance from fulcrum to approximate location on cyclic
     
     name = col.name
     try: 
@@ -86,7 +86,7 @@ def convert_data(col) -> pd.series:
 
 if "__main__":
     
-    path = r'ControlPos_2025-10-13_15-40-21_P02 Block C.csv'
+    path = r'C:/Users/gmorfitt/Documents/Marshall Data Analysis/Block A/ControlPos/helo_2025-07-28-16.50.41_Pilot 2_A_StageCheckA_ControlPos.csv'
     data = read_csv(path)
     
     fig = make_subplots(rows=4, cols=1, shared_xaxes=True,)

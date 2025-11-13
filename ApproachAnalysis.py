@@ -6,10 +6,12 @@ import matplotlib.pyplot as plt
 import plotly.io as pio
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
-pio.renderers.default='browser'
+#pio.renderers.default='browser'
+
 import re
 import datetime
 import random
+import math
 
 def import_csvs(folder_path):
 
@@ -55,7 +57,6 @@ def extract_time(series):
     # Single string: slice characters 11-19
         return series[11:19]
     else:
-        # Series or list-like: use vectorized slice
         series = pd.Series(series)
         return series.str.slice(11, 19)
 
@@ -118,9 +119,65 @@ def random_rgb():
     g = random.randint(0, 255)
     b = random.randint(0, 255)
     return f'rgb({r},{g},{b})'
+        
+def voltage_to_distance(volts):
+    """
+    
+
+    Parameters
+    ----------
+    volts : FLOAT
+        voltage from DI-2008
+
+    Returns
+    -------
+    x : FLOAT
+        converted voltage from string pot to distance in mm
+
+    """
+    
+    x = 1270 * (volts/15)
+    
+    return x
+
+def convert_data(col):
+    """
+    Parameters
+    ----------
+    col : series
+        series to convert with control data
+
+    Returns
+    -------
+    converted series
+
+    """
+    cyclic_x = (183+60) #distance from fulcrum to approximate location on cyclic
+    
+    name = col.name
+    try: 
+        if name == "Pitch" or name == "Roll":
+            y0 = voltage_to_distance(col[1]) #246mm
+
+            col = col.apply(voltage_to_distance)
+            
+            col = col.apply(lambda y: math.tan((y-y0)/cyclic_x) )
+
+            col = col.apply(math.degrees)
+            print(f"Max: {col.max()}")
+            
+            return col
+        else:
+        
+            return col
+    
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+
 
 if __name__ == "__main__":
-    stateFilePath = r"C:\Users\gmorfitt\Documents\Marshall Data Analysis\Block A\States"  # <-- change this path
+    
+    stateFilePath = r"C:\Users\gmorfitt\Documents\Marshall Data Analysis\Block A\States"
     stateFile_dfs = import_csvs(stateFilePath)
     manuFilePath = r"C:\Users\gmorfitt\Documents\Marshall Data Analysis\Block A\ManeuverLog"
     manuFile_dfs = import_csvs(manuFilePath)
@@ -131,26 +188,7 @@ if __name__ == "__main__":
     STATE FILE VARS
     FOG TIME SAMPLE - 200Hz
     CONTROL - 50 hz
-    'Human Timestamp', 'Unix Time', 'Microseconds', 'System Failure',
-           'Accelerometer Failure', 'Gyroscope Failure', 'Magnetometer Failure',
-           'Pressure Failure', 'GNSS Failure', 'Accelerometer Overrange',
-           'Gyroscope Overrange', 'Magnetometer Overrange', 'Pressure Overrange',
-           'Minimum Temperature', 'Maximum Temperature', 'Low Voltage',
-           'High Voltage', 'GNSS Antenna Disconnected', 'Data Overflow',
-           'Orientation Ready', 'Navigation Ready', 'Heading Ready', 'Time Ready',
-           'GNSS Fix Type', 'Event 1 Flag', 'Event 2 Flag',
-           'Internal GNSS Enabled', 'Dual Antenna Heading Active',
-           'Velocity Heading Enabled', 'Atmospheric Altitude Enabled',
-           'External Position Active', 'External Velocity Active',
-           'External Heading Active', 'Latitude (degrees)', 'Longitude (degrees)',
-           'Height (m)', 'Velocity North (m/s)', 'Velocity East (m/s)',
-           'Velocity Down (m/s)', 'Acceleration X (m/s/s)',
-           'Acceleration Y (m/s/s)', 'Acceleration Z (m/s/s)', 'G Force (g)',
-           'Roll (degrees)', 'Pitch (degrees)', 'Heading (degrees)',
-           'Angular Velocity X (degrees/s)', 'Angular Velocity Y (degrees/s)',
-           'Angular Velocity Z (degrees/s)', 'Latitude Error (m)',
-           'Longitude Error (m)', 'Height Error (m)'
-   """
+    """
 
     
     linked_data = link_flight_data_by_pilot(
@@ -159,101 +197,100 @@ if __name__ == "__main__":
     controlPos_dfs,
     return_combined=True
     )
+    
     for pilot_id, pilot_data in linked_data.items():
-        print(f"\n- {str.upper(pilot_id)} -")
-        if pilot_id == "pilot 2":
+        if pilot_id == "pilot 3":
+            print(f"\n- {str.upper(pilot_id)} -")
+            #if pilot_id == "pilot 9": #I'm doing these one at a time
+            
              # Access each DataFrame
-             df_maneuver = pilot_data.get("maneuver")
-             df_state = pilot_data.get("state")
-             df_control = pilot_data.get("control")
+            df_maneuver = pilot_data.get("maneuver")
+            df_state = pilot_data.get("state")
+            df_control = pilot_data.get("control")
              
              
-             if df_maneuver is None:
+            if df_maneuver is None:
                  print("No maneuver data")
-             else:
+            else:
                  print(f"Maneuver DataFrame shape: {df_maneuver.shape}")
              
-             if df_state is None:
+            if df_state is None:
                  print("No state data")
-             else:
+            else:
                  print(f"State DataFrame shape: {df_state.shape}")
              
-             if df_control is None:
+            if df_control is None:
                  print("No control data")
-             else:
+            else:
                  print(f"Control DataFrame shape: {df_control.shape}")
              
              
              
             #GPS Data
-             vs = -1 * (df_state['Velocity Down (m/s)'] * 196.85)
-             alt = df_state['Height (m)'] * 3.281
-             print("Converting timestamps")
-             FOG_timestamp = df_state['Human Timestamp'].apply(extract_time)
-             print("Timestamps converted")
-             heading = df_state['Heading (degrees)'] 
-             latitudes = df_state['Latitude (degrees)']
-             longitudes = df_state['Longitude (degrees)']
+            vs = -1 * (df_state['Velocity Down (m/s)'] * 196.85)
+            vs.name = "Vertical speed down (ft/min)"
+            alt = (df_state['Height (m)'] * 3.281)
+            alt.name = "Height (ft)"
+            
+            print("Converting timestamps")
+            FOG_timestamp = df_state['Human Timestamp'].apply(extract_time) #gets
+            print("Timestamps converted")
+            heading = df_state['Heading (degrees)'] 
+            latitudes = df_state['Latitude (degrees)']
+            longitudes = df_state['Longitude (degrees)']
+            roll_state = df_state['Roll (degrees)']
+            v_e = df_state['Velocity East (m/s)']
+            v_n = df_state['Velocity North (m/s)']
+            speed = np.sqrt( np.pow(v_e, 2) + np.pow(v_n,2) )
+            
+            control_timestamp = df_control["Time"].str.split('.').str[0]
+            pitch = convert_data(df_control["Pitch"])
+            roll = convert_data(df_control["Roll"])
+            collective = df_control["Collective"]
+            pedal = df_control["Pedal"]
+            
+       
              
-             control_timestamp = df_control["Time"].str.split('.').str[0]
-             pitch = df_control["Pitch"]
-             roll = df_control["Roll"]
-             collective = df_control["Collective"]
-             pedal = df_control["Pedal"]
+            newTable = get_active_maneuvers(df_maneuver) #get manuevers to plot on graphs
+            
+            
+            
+            
+            
+            dataToPlot = [vs, alt, heading, pitch, roll, roll_state, collective, pedal]
              
-
-             dataToPlot = [vs, alt, heading, pitch, roll, collective, pedal]
-             
-             fig = make_subplots(rows=len(dataToPlot),
-             cols=1, 
-             shared_xaxes=True)
-             
-             newTable = get_active_maneuvers(df_maneuver) #get manuevers to plot on graphs
-             
-             for i, v in enumerate(dataToPlot, start = 1):
-                 print(f"Plotting {v.name}")
-                 if v.name == "Pitch" or v.name == "Roll" or v.name == "Collective" or v.name == "Pedal":
+            fig = make_subplots(rows=len(dataToPlot),
+            cols=1, 
+            shared_xaxes=True)
+            
+            for i, v in enumerate(dataToPlot, start = 1):
+                print(f"Plotting {v.name}")
+                if v.name == "Pitch" or v.name == "Roll" or v.name == "Collective" or v.name == "Pedal":
                      color = random_rgb()
-                     signal = go.Scatter(x=control_timestamp,y=v,name = str(v.name), line = dict(color=f'{color}'))
+                     signal = go.Scatter(x=control_timestamp,y=v,name = str(v.name), line = dict(color='red'))
                      fig.add_trace(signal, row = i,col = 1)
                      
-                     for j,k in newTable.iterrows():
-                         currentTime = newTable["Time"][j]
-                         currentMan = newTable['Active_Maneuver'][j]
-                         fig.add_vline(x=currentTime , line_dash="dash", line_color="gray", row = i,col = 1)
-                         fig.add_annotation(
-                             x=currentTime,
-                             y=0,
-                             text=currentMan,
-                             row = i,
-                             col = 1
-                         )
                          
-                 else:
+                else:
                      color = random_rgb()
-                     signal = go.Scatter(x=FOG_timestamp,y=v,name = str(v.name), line = dict(color=f'{color}'))
+                     signal = go.Scatter(x=FOG_timestamp,y=v,name = str(v.name), line = dict(color='blue'))
                      fig.add_trace(signal, row = i,col = 1)
                      
-                     for j,k in newTable.iterrows():
-                         currentTime = newTable["Time"][j]
-                         currentMan = newTable['Active_Maneuver'][j]
-                         fig.add_vline(x=currentTime , line_dash="dash", line_color="gray", row = i,col = 1)
-                         fig.add_annotation(
-                             x=currentTime,
-                             y=0,
-                             text=currentMan,
-                             row = i,
-                             col = 1
-                         )
-             fig.update_layout(height = 1500)
-             fig.show()
-
-             break
-    
-    
-   
-    
-   
+                for currentTime, currentMan in zip(newTable["Time"], newTable["Active_Maneuver"]):
+                    fig.add_vline(x=currentTime, line_dash="dash", line_color="gray", row=i, col=1)
+                    fig.add_annotation(
+                        x=currentTime,
+                        y=0,
+                        text=currentMan,
+                        row=i,
+                        col=1
+                    )
+            fig.update_layout(height = 1500)
+            print(f"Generating {pilot_id} report")
+            filepath = r"C:\Users\gmorfitt\Documents\Marshall Data Analysis\Reports"
+            filename = os.path.join(filepath, f'{pilot_id.replace(" ", "_")}_report.html')
+            fig.write_html(filename, auto_open=False)
+        
     
            
 
